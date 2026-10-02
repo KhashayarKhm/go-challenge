@@ -83,6 +83,7 @@ batching inserts is required for ClickHouse; idempotency was considered at all.
 | R10: RabbitMQ hardening | **Accepted** | Quorum queue, DLX/DLQ, persistent messages, publisher confirms, manual acks. |
 | Interface for queries | **Chosen: gRPC** | Typed, versioned contract and generated clients. |
 | Scope of `pkg` | **Ingest only** | USS only writes. `pkg/segmentation` exposes `Publisher` + RabbitMQ adapter + in-memory fake. |
+| One ES binary (ingest + gRPC) | **Changed (author)** | The first implementation ran the consumer and the gRPC server in one process, so scaling ingestion also scaled API servers, and vice versa. ES is now **two deployables**: `cmd/ingest` (worker) and `cmd/api` (gRPC). They share only the ClickHouse table, and each scales on its own load. |
 
 A point clarified during the review: with `ORDER BY (segment, day, user_id)`, the same user on
 different days produces **different keys**, so `ReplacingMergeTree` does not merge them. That is
@@ -103,7 +104,8 @@ USS ──imports pkg/segmentation──► Publisher.Publish(ctx, userID, segme
                                  │ routing key "segment.tagged"
                  queue "estimation.segments" (quorum) ──invalid──► .dlx ──► .dlq
                                  │ prefetch = BATCH_SIZE, manual ack
-                 ES ingest.Batcher (single goroutine)
+                 ES ingest worker: cmd/ingest, N replicas (competing consumers)
+                 ingest.Batcher (single goroutine per replica)
                    decode + validate → buffer []Membership{user, segment, day(UTC)}
                    flush when len == BATCH_SIZE or every FLUSH_INTERVAL (10s)
                    INSERT batch → Ack(last, multiple) | on error Nack(requeue) + backoff
@@ -111,6 +113,7 @@ USS ──imports pkg/segmentation──► Publisher.Publish(ctx, userID, segme
                  ClickHouse segment_users
                    ReplacingMergeTree · PARTITION BY toYYYYMM(day) · ORDER BY (segment, day, user_id)
                                  │
+                 ES API: cmd/api, M stateless replicas
                  estimate.Service: since = today(UTC) − 13 days
                  SELECT uniq(user_id) WHERE segment = ? AND day >= since
                                  │
@@ -128,7 +131,8 @@ USS ──imports pkg/segmentation──► Publisher.Publish(ctx, userID, segme
 | `internal/estimate` | The business rule: 14-day window computed in UTC. |
 | `internal/transport/grpc` | gRPC adapter that maps domain errors to status codes. |
 | `api/proto` / `api/gen` | gRPC contract and generated code. |
-| `cmd/es` | Wiring, configuration, graceful shutdown. |
+| `cmd/ingest` | Ingestion worker: RabbitMQ → ClickHouse. Flushes and acks its buffer on shutdown. |
+| `cmd/api` | gRPC API: ClickHouse → `Estimate`. Stateless, graceful stop. |
 | `cmd/uss-sim` | Publishes random pairs through `pkg/segmentation` for end-to-end checks. |
 | `migrations` | ClickHouse schema (auto-applied by docker compose). |
 
@@ -141,9 +145,22 @@ USS ──imports pkg/segmentation──► Publisher.Publish(ctx, userID, segme
 - Together these give **effectively-once** results (DDIA ch.11).
 - Invalid payloads are rejected without requeue → dead-letter queue, so they never block the queue.
 
+### Deployment and scaling
+
+The ingestion worker and the API are separate processes that share only the ClickHouse table:
+
+| Process | Scales with | How to scale |
+|---|---|---|
+| `cmd/ingest` | Write rate from USS (queue depth) | Add replicas. RabbitMQ spreads messages across them (competing consumers); each acks only its own batches. |
+| `cmd/api` | Estimate query rate | Add replicas behind a gRPC load balancer. They hold no state. |
+
+Running one kind of process never forces running the other. Deploying or crashing one doesn't
+affect the other either: a failing API doesn't stop ingestion, and a backlog in ingestion doesn't
+slow queries.
+
 ### Ordering of startup
 
-ES declares the queue, so ES must start (once) before USS publishes. Messages published to an
+`cmd/ingest` declares the queue, so it must start (once) before USS publishes. Messages published to an
 exchange with no bound queue are confirmed and dropped by RabbitMQ.
 
 ---
@@ -161,6 +178,7 @@ exchange with no bound queue are confirmed and dropped by RabbitMQ.
 | ClickHouse (vs Redis-only, e.g. a set per segment per day + `SUNIONSTORE`/`SCARD`) | Keeps history cheaply on disk, scales to billions of rows, analytics-ready | More moving parts than Redis-only at small scale |
 | Keep history (no TTL) | Future analytics, auditability | Storage grows without bound. A TTL/archival policy can be added later without code changes. |
 | No pre-aggregation | Simpler schema, one table | Each estimate scans up to 14 days of one segment's rows |
+| Separate ingest and API processes (vs one binary) | Independent scaling, deploys and failure isolation | Two deployables to build, configure and monitor |
 | gRPC (vs REST) | Typed contract, generated clients, HTTP/2 | Not curl-friendly (reflection enabled for `grpcurl`) |
 | Publish timestamp as event time | Correct day despite backlog/replay, no `at` in API | Relies on the USS host clock. A missing timestamp falls back to consume time. |
 
