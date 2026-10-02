@@ -54,3 +54,37 @@ Add a file named "ai.md" to your project. This file should contain the following
 4 Explain how you monitor your token usage and what you do to manage it. Link your tools or add your helper prompts.
 
 *There's a sample.ai.md file in the project representing the expected template. Don't forget: "ai.md" is the only file we expect you to write entirely by yourself.*
+
+
+## Solution
+
+Design decisions, the review the design went through, and trade-offs: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+```
+USS ─► pkg/segmentation ─► RabbitMQ ─► ES batcher ─► ClickHouse ─► gRPC Estimate(segment)
+```
+
+- **USS integration:** import `github.com/KhashayarKhm/go-challenge/pkg/segmentation` and depend on the
+  `Publisher` interface (`Publish(ctx, userID, segment)`); use `NewRabbitMQPublisher` in production and
+  `InMemoryPublisher` in tests.
+- **Estimate:** `estimation.v1.EstimationService/Estimate` (see `api/proto`).
+
+### Run locally
+
+```sh
+make up                 # RabbitMQ + ClickHouse (schema applied automatically)
+make run                # ES: consumes RabbitMQ, serves gRPC on :9090
+make sim                # USS simulator: publishes random pairs, prints expected counts
+grpcurl -plaintext -d '{"segment":"sports"}' localhost:9090 estimation.v1.EstimationService/Estimate
+```
+
+Configuration is via environment variables (`RABBITMQ_URL`, `RABBITMQ_QUEUE`, `CLICKHOUSE_DSN`,
+`GRPC_ADDR`, `BATCH_SIZE`, `FLUSH_INTERVAL`); defaults match `docker-compose.yml`. With the default
+`FLUSH_INTERVAL=10s`, counts appear up to 10 seconds after publishing.
+
+### Tests
+
+```sh
+make test               # unit tests, no infrastructure needed
+make test-integration   # also runs ClickHouse integration tests (needs `make up`)
+```
