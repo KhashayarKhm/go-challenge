@@ -82,7 +82,8 @@ grpcurl -plaintext -d '{"segment":"sports"}' localhost:9090 estimation.v1.Estima
 ```
 
 Configuration is via environment variables; defaults match `docker-compose.yml`.
-`cmd/ingest` reads `RABBITMQ_URL`, `RABBITMQ_QUEUE`, `CLICKHOUSE_DSN`, `BATCH_SIZE` and `FLUSH_INTERVAL`.
+`cmd/ingest` reads `RABBITMQ_URL`, `RABBITMQ_QUEUE`, `RABBITMQ_CONSUMER_TAG`, `CLICKHOUSE_DSN`,
+`BATCH_SIZE` and `FLUSH_INTERVAL`.
 `cmd/api` reads `CLICKHOUSE_DSN` and `GRPC_ADDR`. With the default
 `FLUSH_INTERVAL=10s`, counts appear up to 10 seconds after publishing.
 

@@ -3,24 +3,38 @@ package ingest
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 
 	"github.com/KhashayarKhm/go-challenge/pkg/segmentation"
 )
 
+// DefaultConsumerTagPrefix is used to build the consumer tag when none is configured.
+const DefaultConsumerTagPrefix = "estimation-service"
+
 // ConsumerConfig describes the RabbitMQ side of ingestion.
 type ConsumerConfig struct {
 	URL      string
 	Queue    string
 	Prefetch int // must equal Config.BatchSize, see Config.BatchSize
+	// ConsumerTag names this consumer in RabbitMQ (management UI, logs), which
+	// tells ingest replicas apart. Empty means DefaultConsumerTag(now).
+	ConsumerTag string
 }
 
 // Consumer owns the AMQP connection that feeds a Batcher.
 type Consumer struct {
 	conn       *amqp.Connection
 	ch         *amqp.Channel
+	Tag        string
 	Deliveries <-chan amqp.Delivery
+}
+
+// DefaultConsumerTag returns "<prefix>-YYYY-MM-dd HH:mm" with the start time
+// in UTC, the same clock the rest of ES uses.
+func DefaultConsumerTag(now time.Time) string {
+	return DefaultConsumerTagPrefix + "-" + now.UTC().Format("2006-01-02 15:04")
 }
 
 // NewConsumer connects, declares the topology and starts consuming.
@@ -87,10 +101,15 @@ func (c *Consumer) setup(cfg ConsumerConfig) error {
 		}
 	}
 
-	deliveries, err := ch.Consume(cfg.Queue, "estimation-service", false, false, false, false, nil)
+	tag := cfg.ConsumerTag
+	if tag == "" {
+		tag = DefaultConsumerTag(time.Now())
+	}
+	deliveries, err := ch.Consume(cfg.Queue, tag, false, false, false, false, nil)
 	if err != nil {
 		return fmt.Errorf("ingest: consume: %w", err)
 	}
+	c.Tag = tag
 	c.Deliveries = deliveries
 	return nil
 }

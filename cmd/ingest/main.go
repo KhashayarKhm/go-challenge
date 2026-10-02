@@ -9,6 +9,7 @@
 //
 //	RABBITMQ_URL     amqp://guest:guest@localhost:5672/
 //	RABBITMQ_QUEUE   estimation.segments
+//	RABBITMQ_CONSUMER_TAG  estimation-service-<UTC start time, YYYY-MM-dd HH:mm>
 //	CLICKHOUSE_DSN   clickhouse://default:clickhouse@localhost:9000/default
 //	BATCH_SIZE       10000   (also the RabbitMQ prefetch, max 65535)
 //	FLUSH_INTERVAL   10s
@@ -57,6 +58,8 @@ func run(log *slog.Logger) error {
 		URL:      env("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/"),
 		Queue:    queue,
 		Prefetch: batch.BatchSize,
+		// Set a unique value per replica (e.g. the pod name) to tell them apart.
+		ConsumerTag: os.Getenv("RABBITMQ_CONSUMER_TAG"),
 	})
 	if err != nil {
 		return err
@@ -64,7 +67,7 @@ func run(log *slog.Logger) error {
 	// Closed after Run returns, so the final flush can still ack.
 	defer consumer.Close()
 
-	log.Info("ingest started", "queue", queue, "batch_size", batch.BatchSize,
+	log.Info("ingest started", "queue", queue, "consumer_tag", consumer.Tag, "batch_size", batch.BatchSize,
 		"flush_interval", batch.FlushInterval.String())
 
 	// Run flushes its buffer and returns nil on SIGINT/SIGTERM, or returns
