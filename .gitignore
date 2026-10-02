@@ -1,2 +1,4 @@
 .tmp/
 api/gen
+.claude/
+.vscode
