@@ -81,7 +81,9 @@ make sim                # USS simulator: publishes random pairs, prints expected
 grpcurl -plaintext -d '{"segment":"sports"}' localhost:9090 estimation.v1.EstimationService/Estimate
 ```
 
-Configuration is via environment variables; defaults match `docker-compose.yml`.
+Configuration is via environment variables, optionally loaded from a `.env` file in the working
+directory (`cp .env.example .env`; real environment variables take precedence). Defaults match
+`docker-compose.yml`.
 `cmd/ingest` reads `RABBITMQ_URL`, `RABBITMQ_QUEUE`, `RABBITMQ_CONSUMER_TAG`, `CLICKHOUSE_DSN`,
 `BATCH_SIZE` and `FLUSH_INTERVAL`.
 `cmd/api` reads `CLICKHOUSE_DSN` and `GRPC_ADDR`.

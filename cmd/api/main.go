@@ -3,7 +3,8 @@
 // It is stateless and deployed separately from the ingestion worker
 // (cmd/ingest), so query capacity scales independently of write throughput.
 //
-// Configuration (environment variables):
+// Configuration (environment variables, optionally loaded from ./.env; see
+// .env.example):
 //
 //	CLICKHOUSE_DSN   clickhouse://default:clickhouse@localhost:9000/default
 //	GRPC_ADDR        :9090
@@ -15,12 +16,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
@@ -40,6 +43,12 @@ func main() {
 }
 
 func run(log *slog.Logger) error {
+	// Optional local config: real environment variables take precedence over
+	// .env, and a missing file is fine (e.g. in containers).
+	if err := godotenv.Load(); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("load .env: %w", err)
+	}
+
 	addr := env("GRPC_ADDR", ":9090")
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

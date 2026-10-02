@@ -5,7 +5,8 @@
 // its own load: add ingest replicas for write throughput (they share the queue
 // as competing consumers) without running extra API servers, and vice versa.
 //
-// Configuration (environment variables):
+// Configuration (environment variables, optionally loaded from ./.env; see
+// .env.example):
 //
 //	RABBITMQ_URL     amqp://guest:guest@localhost:5672/
 //	RABBITMQ_QUEUE   estimation.segments
@@ -21,12 +22,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
 	"time"
+
+	"github.com/joho/godotenv"
 
 	"github.com/KhashayarKhm/go-challenge/internal/ingest"
 	"github.com/KhashayarKhm/go-challenge/internal/pprofserver"
@@ -42,6 +46,12 @@ func main() {
 }
 
 func run(log *slog.Logger) error {
+	// Optional local config: real environment variables take precedence over
+	// .env, and a missing file is fine (e.g. in containers).
+	if err := godotenv.Load(); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return fmt.Errorf("load .env: %w", err)
+	}
+
 	batch, err := batchConfig()
 	if err != nil {
 		return err

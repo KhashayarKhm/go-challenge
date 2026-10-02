@@ -2,3 +2,4 @@
 api/gen
 .claude/
 .vscode
+.env
