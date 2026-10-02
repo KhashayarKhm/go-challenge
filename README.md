@@ -61,25 +61,29 @@ Add a file named "ai.md" to your project. This file should contain the following
 Design decisions, the review the design went through, and trade-offs: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ```
-USS ─► pkg/segmentation ─► RabbitMQ ─► ES batcher ─► ClickHouse ─► gRPC Estimate(segment)
+USS ─► pkg/segmentation ─► RabbitMQ ─► cmd/ingest ─► ClickHouse ◄─ cmd/api ◄─ gRPC Estimate(segment)
 ```
 
 - **USS integration:** import `github.com/KhashayarKhm/go-challenge/pkg/segmentation` and depend on the
   `Publisher` interface (`Publish(ctx, userID, segment)`); use `NewRabbitMQPublisher` in production and
   `InMemoryPublisher` in tests.
 - **Estimate:** `estimation.v1.EstimationService/Estimate` (see `api/proto`).
+- **Two processes:** `cmd/ingest` (RabbitMQ → ClickHouse) and `cmd/api` (gRPC) are deployed and
+  scaled independently.
 
 ### Run locally
 
 ```sh
 make up                 # RabbitMQ + ClickHouse (schema applied automatically)
-make run                # ES: consumes RabbitMQ, serves gRPC on :9090
+make run-ingest         # ingestion worker: RabbitMQ → ClickHouse (start before the simulator)
+make run-api            # gRPC API on :9090 (another terminal)
 make sim                # USS simulator: publishes random pairs, prints expected counts
 grpcurl -plaintext -d '{"segment":"sports"}' localhost:9090 estimation.v1.EstimationService/Estimate
 ```
 
-Configuration is via environment variables (`RABBITMQ_URL`, `RABBITMQ_QUEUE`, `CLICKHOUSE_DSN`,
-`GRPC_ADDR`, `BATCH_SIZE`, `FLUSH_INTERVAL`); defaults match `docker-compose.yml`. With the default
+Configuration is via environment variables; defaults match `docker-compose.yml`.
+`cmd/ingest` reads `RABBITMQ_URL`, `RABBITMQ_QUEUE`, `CLICKHOUSE_DSN`, `BATCH_SIZE` and `FLUSH_INTERVAL`.
+`cmd/api` reads `CLICKHOUSE_DSN` and `GRPC_ADDR`. With the default
 `FLUSH_INTERVAL=10s`, counts appear up to 10 seconds after publishing.
 
 ### Tests
