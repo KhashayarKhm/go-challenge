@@ -7,12 +7,18 @@ proto:
 		--go-grpc_out=api/gen --go-grpc_opt=paths=source_relative \
 		estimation/v1/estimation.proto
 
-test:
-	go test -race ./...
+# Tests load .env.test.local (if present) through the godotenv CLI, so every test package sees it.
+# Real environment variables take precedence over the file.
+TEST_ENV_FILE := .env.test.local
+WITH_TEST_ENV = $(if $(wildcard $(TEST_ENV_FILE)),go run github.com/joho/godotenv/cmd/godotenv -f $(TEST_ENV_FILE),)
 
-# Needs `make up` and a prepared es_test database (see README). Tests empty its tables afterwards.
+test:
+	$(WITH_TEST_ENV) go test -race ./...
+
+# Unit + integration tests (build tag "integration"). Needs `make up` and a prepared database
+# whose DSN is in .env.test.local (see README). Tests empty its tables afterwards.
 test-integration:
-	CLICKHOUSE_DSN=clickhouse://default:clickhouse@localhost:9000/es_test go test -race -count=1 ./...
+	$(WITH_TEST_ENV) go test -race -count=1 -tags integration ./...
 
 up:
 	docker compose up -d --wait

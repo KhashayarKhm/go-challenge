@@ -104,12 +104,17 @@ go tool pprof http://localhost:6060/debug/pprof/profile?seconds=30   # CPU
 ### Tests
 
 ```sh
+cp .env.test.example .env.test.local   # test configuration (gitignored)
 make test               # unit tests, no infrastructure needed
-make test-integration   # also runs ClickHouse tests against the es_test database
+make test-integration   # unit + ClickHouse integration tests (build tag "integration")
 ```
 
-`make test-integration` expects a prepared environment: `make up`, then an `es_test` database with the
-migrations applied. The tests empty `segment_users` in it when they finish.
+Both targets load `.env.test.local` (if present) with the godotenv CLI, so every test package sees its
+variables; real environment variables take precedence.
+
+`make test-integration` expects a prepared environment: `make up`, then the database named in
+`CLICKHOUSE_DSN` (default `es_test`) with the migrations applied. The tests empty `segment_users` in
+it when they finish.
 
 ```sh
 docker compose exec clickhouse clickhouse-client --password clickhouse -q "CREATE DATABASE IF NOT EXISTS es_test"

@@ -3,3 +3,4 @@ api/gen
 .claude/
 .vscode
 .env
+.env.test.local
