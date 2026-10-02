@@ -27,22 +27,25 @@ down:
 	docker compose down -v
 
 # Ingestion worker and gRPC API are separate processes; run each in its own terminal.
-# ClickHouse schema (cmd/migrate, golang-migrate). Uses CLICKHOUSE_DSN from the environment or .env.
+# Commands load .env by default; pass ENV_FILE=path to load another file, e.g. make run-api ENV_FILE=.env.staging
+ENV_FLAG = $(if $(ENV_FILE),-env-file $(ENV_FILE),)
+
+# ClickHouse schema (cmd/migrate, golang-migrate). Uses CLICKHOUSE_DSN from the environment or the env file.
 migrate-up:
-	go run ./cmd/migrate up
+	go run ./cmd/migrate $(ENV_FLAG) up
 
 # Rolls back only the last applied migration.
 migrate-down:
-	go run ./cmd/migrate down
+	go run ./cmd/migrate $(ENV_FLAG) down
 
 migrate-version:
-	go run ./cmd/migrate version
+	go run ./cmd/migrate $(ENV_FLAG) version
 
 run-ingest:
-	go run ./cmd/ingest
+	go run ./cmd/ingest $(ENV_FLAG)
 
 run-api:
-	go run ./cmd/api
+	go run ./cmd/api $(ENV_FLAG)
 
 sim:
 	go run ./cmd/uss-sim

@@ -82,8 +82,10 @@ make sim                # USS simulator: publishes random pairs, prints expected
 grpcurl -plaintext -d '{"segment":"sports"}' localhost:9090 estimation.v1.EstimationService/Estimate
 ```
 
-Configuration is via environment variables, optionally loaded from a `.env` file in the working
-directory (`cp .env.example .env`; real environment variables take precedence). Defaults match
+Configuration is via environment variables, optionally loaded from a dotenv file: `.env` in the
+working directory by default (`cp .env.example .env`), or any file given with `-env-file`
+(`make ... ENV_FILE=path`). Real environment variables take precedence; a missing default `.env` is
+ignored, but a file passed explicitly must exist. Defaults match
 `docker-compose.yml`.
 `cmd/ingest` reads `RABBITMQ_URL`, `RABBITMQ_QUEUE`, `RABBITMQ_CONSUMER_TAG`, `CLICKHOUSE_DSN`,
 `BATCH_SIZE` and `FLUSH_INTERVAL`.

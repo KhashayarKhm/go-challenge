@@ -129,6 +129,7 @@ USS ──imports pkg/segmentation──► Publisher.Publish(ctx, userID, segme
 | `internal/store` | Ports (`Writer`, `Reader`), the `Membership` model, and `DayOf` (the one definition of "a day"). |
 | `internal/store/clickhouse` | ClickHouse adapter: batch insert and distinct count. |
 | `internal/estimate` | The business rule: 14-day window computed in UTC. |
+| `internal/envfile` | Shared `-env-file` flag for all commands: loads a dotenv file (default `.env`, optional). |
 | `internal/pprofserver` | Optional pprof HTTP server for both processes. Off by default (`PPROF_ENABLED`), binds to localhost. |
 | `internal/transport/grpc` | gRPC adapter that maps domain errors to status codes. |
 | `api/proto` / `api/gen` | gRPC contract and generated code. |

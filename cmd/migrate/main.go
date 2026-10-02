@@ -3,12 +3,12 @@
 //
 // Usage:
 //
-//	migrate [-path migrations] up        apply all pending migrations
-//	migrate [-path migrations] down      roll back the last applied migration
-//	migrate [-path migrations] version   print the current schema version
+//	migrate [-path migrations] [-env-file .env] up        apply all pending migrations
+//	migrate [-path migrations] [-env-file .env] down      roll back the last applied migration
+//	migrate [-path migrations] [-env-file .env] version   print the current schema version
 //
-// Configuration (environment variables, optionally loaded from ./.env; see
-// .env.example):
+// Configuration (environment variables, optionally loaded from a dotenv file
+// given by -env-file, default ./.env; see .env.example):
 //
 //	CLICKHOUSE_DSN   clickhouse://default:clickhouse@localhost:9000/default
 //
@@ -21,17 +21,17 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 
 	_ "github.com/ClickHouse/clickhouse-go/v2" // registers the "clickhouse" database/sql driver used by golang-migrate
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/clickhouse"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/joho/godotenv"
+
+	"github.com/KhashayarKhm/go-challenge/internal/envfile"
 )
 
-const usage = `Usage: migrate [-path dir] <command>
+const usage = `Usage: migrate [-path dir] [-env-file file] <command>
 
 Commands:
   up        apply all pending migrations
@@ -51,6 +51,7 @@ func main() {
 func run(args []string, out io.Writer) error {
 	flags := flag.NewFlagSet("migrate", flag.ContinueOnError)
 	path := flags.String("path", "migrations", "directory with *.up.sql and *.down.sql files")
+	loadEnv := envfile.Register(flags)
 	flags.Usage = func() {
 		fmt.Fprint(flags.Output(), usage)
 		flags.PrintDefaults()
@@ -70,12 +71,12 @@ func run(args []string, out io.Writer) error {
 		return fmt.Errorf("unknown command %q", command)
 	}
 
-	if err := godotenv.Load(); err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("load .env: %w", err)
+	if err := loadEnv(); err != nil {
+		return err
 	}
 	dsn := os.Getenv("CLICKHOUSE_DSN")
 	if dsn == "" {
-		dsn = "clickhouse://default:clickhouse@localhost:9000/default"
+		return fmt.Errorf("\"CLICKHOUSE_DSN\" is required")
 	}
 
 	m, err := migrate.New("file://"+*path, dsn)

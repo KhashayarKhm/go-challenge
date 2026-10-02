@@ -5,8 +5,8 @@
 // its own load: add ingest replicas for write throughput (they share the queue
 // as competing consumers) without running extra API servers, and vice versa.
 //
-// Configuration (environment variables, optionally loaded from ./.env; see
-// .env.example):
+// Configuration (environment variables, optionally loaded from a dotenv file
+// given by -env-file, default ./.env; see .env.example):
 //
 //	RABBITMQ_URL     amqp://guest:guest@localhost:5672/
 //	RABBITMQ_QUEUE   estimation.segments
@@ -21,8 +21,8 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
-	"io/fs"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -30,8 +30,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/joho/godotenv"
-
+	"github.com/KhashayarKhm/go-challenge/internal/envfile"
 	"github.com/KhashayarKhm/go-challenge/internal/ingest"
 	"github.com/KhashayarKhm/go-challenge/internal/pprofserver"
 	"github.com/KhashayarKhm/go-challenge/internal/store/clickhouse"
@@ -46,10 +45,13 @@ func main() {
 }
 
 func run(log *slog.Logger) error {
-	// Optional local config: real environment variables take precedence over
-	// .env, and a missing file is fine (e.g. in containers).
-	if err := godotenv.Load(); err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("load .env: %w", err)
+	// Optional local config (-env-file, default .env): real environment
+	// variables take precedence, and a missing default file is fine (e.g. in
+	// containers).
+	loadEnv := envfile.Register(flag.CommandLine)
+	flag.Parse()
+	if err := loadEnv(); err != nil {
+		return err
 	}
 
 	batch, err := batchConfig()
