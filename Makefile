@@ -1,4 +1,4 @@
-.PHONY: proto test test-integration up down run sim
+.PHONY: proto test test-integration up down run-ingest run-api sim
 
 # Regenerate gRPC code (requires protoc, protoc-gen-go, protoc-gen-go-grpc).
 proto:
@@ -20,8 +20,12 @@ up:
 down:
 	docker compose down -v
 
-run:
-	go run ./cmd/es
+# Ingestion worker and gRPC API are separate processes; run each in its own terminal.
+run-ingest:
+	go run ./cmd/ingest
+
+run-api:
+	go run ./cmd/api
 
 sim:
 	go run ./cmd/uss-sim
