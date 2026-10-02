@@ -74,7 +74,8 @@ USS ─► pkg/segmentation ─► RabbitMQ ─► cmd/ingest ─► ClickHouse 
 ### Run locally
 
 ```sh
-make up                 # RabbitMQ + ClickHouse (schema applied automatically)
+make up                 # RabbitMQ + ClickHouse
+make migrate-up         # apply the ClickHouse schema (cmd/migrate)
 make run-ingest         # ingestion worker: RabbitMQ → ClickHouse (start before the simulator)
 make run-api            # gRPC API on :9090 (another terminal)
 make sim                # USS simulator: publishes random pairs, prints expected counts
@@ -118,5 +119,5 @@ it when they finish.
 
 ```sh
 docker compose exec clickhouse clickhouse-client --password clickhouse -q "CREATE DATABASE IF NOT EXISTS es_test"
-docker compose exec -T clickhouse clickhouse-client --password clickhouse -d es_test --multiquery < migrations/001_init.sql
+CLICKHOUSE_DSN=clickhouse://default:clickhouse@localhost:9000/es_test go run ./cmd/migrate up
 ```

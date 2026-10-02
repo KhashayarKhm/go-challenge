@@ -135,7 +135,8 @@ USS ──imports pkg/segmentation──► Publisher.Publish(ctx, userID, segme
 | `cmd/ingest` | Ingestion worker: RabbitMQ → ClickHouse. Flushes and acks its buffer on shutdown. |
 | `cmd/api` | gRPC API: ClickHouse → `Estimate`. Stateless, graceful stop. |
 | `cmd/uss-sim` | Publishes random pairs through `pkg/segmentation` for end-to-end checks. |
-| `migrations` | ClickHouse schema (auto-applied by docker compose). |
+| `cmd/migrate` | Schema migrations with golang-migrate: `up`, `down` (last migration only), `version`. |
+| `migrations` | ClickHouse schema as `NNN_name.up.sql` / `.down.sql` pairs, one statement per file. |
 
 ### Delivery semantics
 

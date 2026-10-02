@@ -16,9 +16,8 @@ services:
       - "8123:8123" # HTTP
     environment:
       CLICKHOUSE_PASSWORD: clickhouse
-    volumes:
-      # Applied automatically on first start of an empty data directory.
-      - ./migrations:/docker-entrypoint-initdb.d:ro
+      # Created on first start; the schema is applied with `make migrate-up` (cmd/migrate).
+      CLICKHOUSE_DB: es_db
     ulimits:
       nofile: { soft: 262144, hard: 262144 }
     healthcheck:

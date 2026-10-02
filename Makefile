@@ -1,4 +1,4 @@
-.PHONY: proto test test-integration up down run-ingest run-api sim
+.PHONY: proto test test-integration up down migrate-up migrate-down migrate-version run-ingest run-api sim
 
 # Regenerate gRPC code (requires protoc, protoc-gen-go, protoc-gen-go-grpc).
 proto:
@@ -27,6 +27,17 @@ down:
 	docker compose down -v
 
 # Ingestion worker and gRPC API are separate processes; run each in its own terminal.
+# ClickHouse schema (cmd/migrate, golang-migrate). Uses CLICKHOUSE_DSN from the environment or .env.
+migrate-up:
+	go run ./cmd/migrate up
+
+# Rolls back only the last applied migration.
+migrate-down:
+	go run ./cmd/migrate down
+
+migrate-version:
+	go run ./cmd/migrate version
+
 run-ingest:
 	go run ./cmd/ingest
 

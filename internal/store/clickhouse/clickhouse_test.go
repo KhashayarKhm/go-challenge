@@ -15,7 +15,7 @@ import (
 //
 // Built only with -tags integration (`make test-integration`). The tester
 // prepares the environment: CLICKHOUSE_DSN (from .env.test.local) must point at
-// a database with migrations/*.sql applied, e.g. es_test (see README). The
+// a database migrated with cmd/migrate, e.g. es_test (see README). The
 // test empties segment_users when it finishes.
 func TestStoreIntegration(t *testing.T) {
 	dsn := os.Getenv("CLICKHOUSE_DSN")
