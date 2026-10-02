@@ -84,7 +84,19 @@ grpcurl -plaintext -d '{"segment":"sports"}' localhost:9090 estimation.v1.Estima
 Configuration is via environment variables; defaults match `docker-compose.yml`.
 `cmd/ingest` reads `RABBITMQ_URL`, `RABBITMQ_QUEUE`, `RABBITMQ_CONSUMER_TAG`, `CLICKHOUSE_DSN`,
 `BATCH_SIZE` and `FLUSH_INTERVAL`.
-`cmd/api` reads `CLICKHOUSE_DSN` and `GRPC_ADDR`. With the default
+`cmd/api` reads `CLICKHOUSE_DSN` and `GRPC_ADDR`.
+
+### Profiling
+
+Both processes can serve Go runtime profiles (`net/http/pprof`). It is off by default; enable it with
+`PPROF_ENABLED=true`. The address comes from `PPROF_ADDR` (defaults: `localhost:6060` for ingest,
+`localhost:6061` for api).
+
+```sh
+PPROF_ENABLED=true make run-ingest
+go tool pprof http://localhost:6060/debug/pprof/heap
+go tool pprof http://localhost:6060/debug/pprof/profile?seconds=30   # CPU
+``` With the default
 `FLUSH_INTERVAL=10s`, counts appear up to 10 seconds after publishing.
 
 ### Tests

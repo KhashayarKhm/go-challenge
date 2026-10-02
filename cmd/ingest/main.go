@@ -13,6 +13,8 @@
 //	CLICKHOUSE_DSN   clickhouse://default:clickhouse@localhost:9000/default
 //	BATCH_SIZE       10000   (also the RabbitMQ prefetch, max 65535)
 //	FLUSH_INTERVAL   10s
+//	PPROF_ENABLED    false   (true starts the pprof HTTP server)
+//	PPROF_ADDR       localhost:6060
 package main
 
 import (
@@ -27,6 +29,7 @@ import (
 	"time"
 
 	"github.com/KhashayarKhm/go-challenge/internal/ingest"
+	"github.com/KhashayarKhm/go-challenge/internal/pprofserver"
 	"github.com/KhashayarKhm/go-challenge/internal/store/clickhouse"
 )
 
@@ -47,6 +50,12 @@ func run(log *slog.Logger) error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	stopPprof, err := pprofserver.StartFromEnv("localhost:6060", log)
+	if err != nil {
+		return err
+	}
+	defer stopPprof()
 
 	db, err := clickhouse.Open(ctx, env("CLICKHOUSE_DSN", "clickhouse://default:clickhouse@localhost:9000/default"))
 	if err != nil {

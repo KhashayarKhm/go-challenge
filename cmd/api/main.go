@@ -7,6 +7,8 @@
 //
 //	CLICKHOUSE_DSN   clickhouse://default:clickhouse@localhost:9000/default
 //	GRPC_ADDR        :9090
+//	PPROF_ENABLED    false   (true starts the pprof HTTP server)
+//	PPROF_ADDR       localhost:6061
 package main
 
 import (
@@ -24,6 +26,7 @@ import (
 
 	estimationv1 "github.com/KhashayarKhm/go-challenge/api/gen/estimation/v1"
 	"github.com/KhashayarKhm/go-challenge/internal/estimate"
+	"github.com/KhashayarKhm/go-challenge/internal/pprofserver"
 	"github.com/KhashayarKhm/go-challenge/internal/store/clickhouse"
 	grpctransport "github.com/KhashayarKhm/go-challenge/internal/transport/grpc"
 )
@@ -41,6 +44,13 @@ func run(log *slog.Logger) error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	// Default port differs from cmd/ingest so both can profile on one host.
+	stopPprof, err := pprofserver.StartFromEnv("localhost:6061", log)
+	if err != nil {
+		return err
+	}
+	defer stopPprof()
 
 	db, err := clickhouse.Open(ctx, env("CLICKHOUSE_DSN", "clickhouse://default:clickhouse@localhost:9000/default"))
 	if err != nil {
