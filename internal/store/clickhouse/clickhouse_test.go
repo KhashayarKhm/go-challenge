@@ -10,32 +10,36 @@ import (
 )
 
 // Integration test against a real ClickHouse (see docker-compose.yml).
-// Run with: CLICKHOUSE_DSN=clickhouse://default:clickhouse@localhost:9000/default go test ./internal/store/clickhouse
-// The schema from migrations/001_init.sql must already be applied.
+//
+// The tester prepares the environment: CLICKHOUSE_DSN must point at a
+// database with migrations/*.sql applied (`make test-integration` uses
+// es_test; see README). The test empties segment_users when it finishes.
 func TestStoreIntegration(t *testing.T) {
 	dsn := os.Getenv("CLICKHOUSE_DSN")
 	if dsn == "" {
 		t.Skip("CLICKHOUSE_DSN not set; skipping ClickHouse integration test")
 	}
 	ctx := context.Background()
+
 	s, err := Open(ctx, dsn)
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	defer s.Close()
+	t.Cleanup(func() {
+		if err := s.conn.Exec(context.Background(), "TRUNCATE TABLE segment_users"); err != nil {
+			t.Errorf("clean up segment_users: %v", err)
+		}
+		s.Close()
+	})
 
-	// A unique segment isolates this run from previous data.
-	segment := "it-" + time.Now().Format("20060102150405.000000000")
 	today := store.DayOf(time.Now())
-	old := today.AddDate(0, 0, -20)
-
 	rows := []store.Membership{
-		{UserID: "u1", Segment: segment, Day: today},
-		{UserID: "u1", Segment: segment, Day: today},                   // same-day duplicate
-		{UserID: "u1", Segment: segment, Day: today.AddDate(0, 0, -3)}, // same user, other day
-		{UserID: "u2", Segment: segment, Day: today.AddDate(0, 0, -13)},
-		{UserID: "u3", Segment: segment, Day: old}, // outside the window
-		{UserID: "u4", Segment: "other-" + segment, Day: today},
+		{UserID: "u1", Segment: "sports", Day: today},
+		{UserID: "u1", Segment: "sports", Day: today},                   // same-day duplicate
+		{UserID: "u1", Segment: "sports", Day: today.AddDate(0, 0, -3)}, // same user, other day
+		{UserID: "u2", Segment: "sports", Day: today.AddDate(0, 0, -13)},
+		{UserID: "u3", Segment: "sports", Day: today.AddDate(0, 0, -20)}, // outside the window
+		{UserID: "u4", Segment: "news", Day: today},
 	}
 	if err := s.Insert(ctx, rows); err != nil {
 		t.Fatalf("Insert: %v", err)
@@ -45,7 +49,7 @@ func TestStoreIntegration(t *testing.T) {
 		t.Fatalf("Insert (redelivery): %v", err)
 	}
 
-	got, err := s.CountUsers(ctx, segment, today.AddDate(0, 0, -13))
+	got, err := s.CountUsers(ctx, "sports", today.AddDate(0, 0, -13))
 	if err != nil {
 		t.Fatalf("CountUsers: %v", err)
 	}

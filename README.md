@@ -103,5 +103,13 @@ go tool pprof http://localhost:6060/debug/pprof/profile?seconds=30   # CPU
 
 ```sh
 make test               # unit tests, no infrastructure needed
-make test-integration   # also runs ClickHouse integration tests (needs `make up`)
+make test-integration   # also runs ClickHouse tests against the es_test database
+```
+
+`make test-integration` expects a prepared environment: `make up`, then an `es_test` database with the
+migrations applied. The tests empty `segment_users` in it when they finish.
+
+```sh
+docker compose exec clickhouse clickhouse-client --password clickhouse -q "CREATE DATABASE IF NOT EXISTS es_test"
+docker compose exec -T clickhouse clickhouse-client --password clickhouse -d es_test --multiquery < migrations/001_init.sql
 ```

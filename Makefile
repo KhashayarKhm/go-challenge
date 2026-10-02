@@ -10,9 +10,9 @@ proto:
 test:
 	go test -race ./...
 
-# Needs `make up` first.
+# Needs `make up` and a prepared es_test database (see README). Tests empty its tables afterwards.
 test-integration:
-	CLICKHOUSE_DSN=clickhouse://default:clickhouse@localhost:9000/default go test -race -count=1 ./...
+	CLICKHOUSE_DSN=clickhouse://default:clickhouse@localhost:9000/es_test go test -race -count=1 ./...
 
 up:
 	docker compose up -d --wait
