@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package estimation.v1;
+
+option go_package = "github.com/KhashayarKhm/go-challenge/api/gen/estimation/v1;estimationv1";
+
+// EstimationService answers "how many users exist on a specific segment?".
+service EstimationService {
+  // Estimate returns the number of distinct users tagged with the segment
+  // during the last 14 days (UTC). Returns INVALID_ARGUMENT for an empty segment.
+  rpc Estimate(EstimateRequest) returns (EstimateResponse);
+}
+
+message EstimateRequest {
+  string segment = 1;
+}
+
+message EstimateResponse {
+  string segment = 1;
+  // Approximate for very large segments (ClickHouse uniq, ~1-2% error).
+  uint64 users = 2;
+}
